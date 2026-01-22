@@ -1,3 +1,4 @@
+import os
 import requests
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -5,9 +6,9 @@ from typing import Any, Dict, List, Optional
 
 app = FastAPI(title="Orchestrator Service", version="1.0")
 
-DATA_URL = "http://127.0.0.1:8001"
-ADAPTER_URL = "http://127.0.0.1:8002"
-LOGIC_URL = "http://127.0.0.1:8003"
+DATA_URL = os.getenv("DATA_SERVICE_URL", "http://127.0.0.1:8001")
+ADAPTER_URL = os.getenv("ADAPTER_SERVICE_URL", "http://127.0.0.1:8002")
+LOGIC_URL = os.getenv("ALERT_ENGINE_URL", "http://127.0.0.1:8003")
 
 
 class RunIn(BaseModel):

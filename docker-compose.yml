@@ -1,0 +1,45 @@
+services:
+  data_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn data_service.main:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    volumes:
+      - data_db:/app/data_service
+
+  adapter_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn adapter_service.main:app --host 0.0.0.0 --port 8002
+    ports:
+      - "8002:8002"
+
+  business_logic_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn business_logic_service.main:app --host 0.0.0.0 --port 8003
+    ports:
+      - "8003:8003"
+
+  orchestrator_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn orchestrator_service.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      DATA_SERVICE_URL: http://data_service:8001
+      ADAPTER_SERVICE_URL: http://adapter_service:8002
+      ALERT_ENGINE_URL: http://business_logic_service:8003
+    depends_on:
+      - data_service
+      - adapter_service
+      - business_logic_service
+
+volumes:
+  data_db:
