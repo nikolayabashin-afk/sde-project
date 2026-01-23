@@ -1,40 +1,32 @@
 @echo off
-setlocal ENABLEEXTENSIONS
-
-rem docker compose up -d --build
+setlocal
 
 echo ==================================================
-echo SDE SOA End-to-End Demo (Docker Compose)
+echo Demo 2: DummyJSON price -> Rule -> Alert
 echo ==================================================
 echo This demo will:
-echo  1) Create a user
-echo  2) Create a tracked item
-echo  3) Create a rule (PRICE_BELOW)
-echo  4) Run one orchestrator cycle
-echo  5) Fetch alerts for the user
+echo  1) Fetch price from DummyJSON (product id=16 "Apple")
+echo  2) Create user (assumes new DB -> user_id=1)
+echo  3) Create tracked item (marketplace=dummyjson, external_id=16)
+echo  4) Create PRICE_BELOW rule using DummyJSON price + 0.01
+echo  5) Run orchestrator cycle
+echo  6) Fetch alerts
 echo ==================================================
 echo.
 
+echo [STEP 1] Fetch external price from DummyJSON (id=16)...
+for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command ^
+  "$p=Invoke-RestMethod 'https://dummyjson.com/products/16'; [double]$p.price"`) do set "DUMMY_PRICE=%%P"
 
-echo [STEP 0] Quick check: Are services reachable?
-echo - Orchestrator docs: http://localhost:8000/docs
-echo - Data Service docs: http://localhost:8001/docs
-echo.
+for /f "usebackq delims=" %%T in (`powershell -NoProfile -Command ^
+  "$price=[double]'%DUMMY_PRICE%'; '{0:F2}' -f ($price + 0.01)"`) do set "TARGET=%%T"
 
-echo Pinging orchestrator...
-curl -s http://localhost:8000/docs >nul
-if errorlevel 1 (
-  echo ERROR: Orchestrator is not reachable on http://localhost:8000
-  echo Make sure Docker is running: docker compose up -d --build
-  echo.
-  pause
-  exit /b 1
-)
-echo OK: Services look reachable.
+echo DummyJSON price: %DUMMY_PRICE%
+echo Rule target    : %TARGET%
 echo.
 
 echo --------------------------------------------------
-echo [STEP 1] Create a user (name = Nikolay)
+echo [STEP 2] Create user (name=Nikolay)
 echo --------------------------------------------------
 curl -s -X POST http://localhost:8001/users ^
   -H "Content-Type: application/json" ^
@@ -42,37 +34,26 @@ curl -s -X POST http://localhost:8001/users ^
 echo.
 echo.
 
-
 echo --------------------------------------------------
-echo [STEP 2] Create a tracked item for that user
-echo Marketplace: ebay
-echo External ID: EBAY-1
+echo [STEP 3] Create tracked item (marketplace=dummyjson, external_id=16)
 echo --------------------------------------------------
 curl -s -X POST http://localhost:8001/tracked-items ^
   -H "Content-Type: application/json" ^
-  -d "{\"user_id\":1,\"marketplace\":\"ebay\",\"external_id\":\"EBAY-1\"}"
+  -d "{\"user_id\":1,\"marketplace\":\"dummyjson\",\"external_id\":\"16\"}"
 echo.
 echo.
-
 
 echo --------------------------------------------------
-echo [STEP 3] Create a rule: PRICE_BELOW target=900
+echo [STEP 4] Create rule PRICE_BELOW (target from DummyJSON)
 echo --------------------------------------------------
 curl -s -X POST http://localhost:8001/rules ^
   -H "Content-Type: application/json" ^
-  -d "{\"tracked_item_id\":1,\"rule_type\":\"PRICE_BELOW\",\"params\":{\"target\":900}}"
+  -d "{\"tracked_item_id\":1,\"rule_type\":\"PRICE_BELOW\",\"params\":{\"target\":%TARGET%}}"
 echo.
 echo.
-
-
 
 echo --------------------------------------------------
-echo [STEP 4] Run orchestrator cycle for user_id=1
-echo The orchestrator will:
-echo  - fetch tracked items from Data Service
-echo  - fetch snapshot from Adapter Service
-echo  - evaluate rules in Business Logic Service
-echo  - persist alerts in Data Service
+echo [STEP 5] Run orchestrator cycle (user_id=1)
 echo --------------------------------------------------
 curl -s -X POST http://localhost:8000/run-cycle ^
   -H "Content-Type: application/json" ^
@@ -80,16 +61,14 @@ curl -s -X POST http://localhost:8000/run-cycle ^
 echo.
 echo.
 
-
-
 echo --------------------------------------------------
-echo [STEP 5] Fetch alerts for user_id=1
+echo [STEP 6] Fetch alerts (user_id=1)
 echo --------------------------------------------------
 curl -s http://localhost:8001/users/1/alerts
 echo.
 echo.
 
 echo ==================================================
-echo Demo completed successfully.
+echo Demo 2 finished.
 echo ==================================================
 pause
